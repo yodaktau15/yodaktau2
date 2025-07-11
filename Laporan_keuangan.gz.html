@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Keuangan dengan Faktur</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0fdf4;
+        }
+        .card-shadow {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            background: linear-gradient(to bottom, #ffffff, #f0fdf4);
+        }
+        .btn-primary {
+            background-color: #10b981;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #059669;
+            transform: translateY(-1px);
+        }
+        .btn-secondary {
+            background-color: #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        .btn-secondary:hover {
+            background-color: #d1d5db;
+        }
+        .floating-label {
+            transition: all 0.3s ease;
+        }
+        input:focus + .floating-label,
+        input:not(:placeholder-shown) + .floating-label {
+            transform: translateY(-1.5rem) scale(0.85);
+            color: #10b981;
+        }
+        .invoice-preview {
+            max-width: 800px;
+            background-color: white;
+            border: 1px solid #e5e7eb;
+        }
+        .error {
+            border-color: #ef4444 !important;
+        }
+        .error-label {
+            color: #ef4444 !important;
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #invoice-to-print, #invoice-to-print * {
+                visibility: visible;
+            }
+            #invoice-to-print {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-white mb-2 bg-green-600 px-4 py-2 rounded-lg shadow-md">Sistem Pencatatan Keuangan</h1>
+            <p class="text-gray-600">Kelola keuangan dan buat faktur secara profesional</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Form Section -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Form Input -->
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-6">Form Input Transaksi</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Tanggal Transaksi -->
+                        <div class="relative">
+                            <input id="transaction-date" type="date" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                   placeholder=" " required>
+                            <label for="transaction-date" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                Tanggal Transaksi
+                            </label>
+                        </div>
+
+                        <!-- Kategori -->
+                        <div class="relative">
+                            <select id="transaction-category" 
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="">Pilih Kategori</option>
+                                <option value="Penjualan">Penjualan</option>
+                                <option value="Pembelian">Pembelian</option>
+                                <option value="Jasa">Jasa</option>
+                                <option value="Lain-lain">Lain-lain</option>
+                            </select>
+                        </div>
+
+                        <!-- Deskripsi -->
+                        <div class="relative md:col-span-2">
+                            <input id="transaction-description" type="text" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                   placeholder=" " required>
+                            <label for="transaction-description" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                Deskripsi Transaksi
+                            </label>
+                        </div>
+
+                        <!-- Jumlah -->
+                        <div class="relative md:col-span-2">
+                            <input id="transaction-amount" type="number" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                   placeholder=" " required>
+                            <label for="transaction-amount" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                Jumlah (Rp)
+                            </label>
+                            <div class="flex flex-wrap gap-2 mt-3">
+                                <button type="button" onclick="document.getElementById('transaction-amount').value = '10000'" class="text-sm px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">10,000</button>
+                                <button type="button" onclick="document.getElementById('transaction-amount').value = '25000'" class="text-sm px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">25,000</button>
+                                <button type="button" onclick="document.getElementById('transaction-amount').value = '50000'" class="text-sm px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">50,000</button>
+                                <button type="button" onclick="document.getElementById('transaction-amount').value = '75000'" class="text-sm px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">75,000</button>
+                                <button type="button" onclick="document.getElementById('transaction-amount').value = '100000'" class="text-sm px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">100,000</button>
+                            </div>
+                        </div>
+
+                        <!-- Tipe Transaksi -->
+                        <div class="relative">
+                            <select id="transaction-type" 
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="Pemasukan">Pemasukan</option>
+                                <option value="Pengeluaran">Pengeluaran</option>
+                                <option value="Hutang">Hutang</option>
+                                <option value="Piutang">Piutang</option>
+                                <option value="Lain-lain">Lain-lain</option>
+                            </select>
+                        </div>
+
+                        <!-- Info Faktur -->
+                        <div class="relative md:col-span-2">
+                            <div class="flex items-center gap-2">
+                                <input id="is-invoice" type="checkbox" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                <label for="is-invoice" class="text-gray-700">Tandai sebagai Transaksi Faktur</label>
+                            </div>
+                        </div>
+
+                        <!-- Form tambahan untuk faktur -->
+                        <div id="invoice-fields" class="hidden md:col-span-2 space-y-4 border-t pt-4 mt-2">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="relative">
+                                    <input id="customer-name" type="text" 
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                           placeholder=" ">
+                                    <label for="customer-name" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                        Nama Pelanggan
+                                    </label>
+                                </div>
+                                <div class="relative">
+                                    <input id="invoice-number" type="text" 
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                           placeholder=" ">
+                                    <label for="invoice-number" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                        Nomor Faktur
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="relative">
+                                <input id="customer-address" type="text" 
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                       placeholder=" ">
+                                <label for="customer-address" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                    Alamat Pelanggan
+                                </label>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="relative">
+                                    <input id="customer-tax-id" type="text" 
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                           placeholder=" ">
+                                    <label for="customer-tax-id" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                        NPWP
+                                    </label>
+                                </div>
+                                <div class="relative">
+                                    <input id="due-date" type="date" 
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                           placeholder=" ">
+                                    <label for="due-date" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                        Jatuh Tempo
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Button Group -->
+                    <div class="flex flex-wrap gap-3 mt-6">
+                        <button id="add-transaction-btn" class="btn-primary text-white px-6 py-2 rounded-lg font-medium">
+                            Tambahkan Transaksi
+                        </button>
+                        <button id="reset-form-btn" class="btn-secondary text-gray-700 px-6 py-2 rounded-lg font-medium">
+                            Reset Form
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Data Table -->
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-semibold text-gray-800">Daftar Transaksi</h2>
+                        <div class="flex gap-3">
+                            <button id="export-excel-btn" class="btn-primary text-white px-4 py-2 rounded-lg font-medium text-sm">
+                                Ekspor ke Excel
+                            </button>
+                            <button id="clear-all-btn" class="btn-secondary text-gray-700 px-4 py-2 rounded-lg font-medium text-sm">
+                                Hapus Semua
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table id="transaction-table" class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipe</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jumlah (Rp)</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transaction-data" class="bg-white divide-y divide-gray-200">
+                                <!-- Data transaksi akan dimasukkan di sini -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="flex flex-wrap justify-center gap-4 mt-6">
+                        <div id="total-income" class="bg-green-50 text-green-700 font-medium px-4 py-2 rounded-lg border border-green-200">Total Pemasukan: Rp0</div>
+                        <div id="total-expense" class="bg-red-50 text-red-700 font-medium px-4 py-2 rounded-lg border border-red-200">Total Pengeluaran: Rp0</div>
+                        <div id="total-debt" class="bg-yellow-50 text-yellow-700 font-medium px-4 py-2 rounded-lg border border-yellow-200">Total Hutang: Rp0</div>
+                        <div id="total-receivable" class="bg-blue-50 text-blue-700 font-medium px-4 py-2 rounded-lg border border-blue-200">Total Piutang: Rp0</div>
+                        <div id="balance" class="bg-indigo-50 text-indigo-700 font-bold px-4 py-2 rounded-lg border border-indigo-200">Saldo: Rp0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Invoice Section -->
+            <div class="space-y-8">
+                <!-- Company Info -->
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Informasi Perusahaan</h2>
+                    
+                    <div class="space-y-4">
+                        <div class="relative">
+                            <input id="company-name" type="text" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                   placeholder=" " value="PT Contoh Perusahaan" required>
+                            <label for="company-name" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                Nama Perusahaan
+                            </label>
+                        </div>
+                        
+                        <div class="relative">
+                            <input id="company-address" type="text" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                   placeholder=" " value="Jl. Contoh No. 123, Jakarta" required>
+                            <label for="company-address" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                Alamat Perusahaan
+                            </label>
+                        </div>
+                        
+                        <div class="relative">
+                            <input id="company-phone" type="text" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                   placeholder=" " value="(021) 12345678" required>
+                            <label for="company-phone" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                Telepon
+                            </label>
+                        </div>
+                        
+                        <div class="relative">
+                            <input id="company-tax-id" type="text" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                   placeholder=" " value="12.345.678.9-012.345" required>
+                            <label for="company-tax-id" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                NPWP
+                            </label>
+                        </div>
+                        
+                        <div class="relative">
+                            <input id="company-logo" type="text" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
+                                   placeholder=" " value="./assets/images/company_logo.png" required>
+                            <label for="company-logo" class="floating-label absolute left-3 top-2 text-gray-500 text-sm pointer-events-none">
+                                URL Logo Perusahaan
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Invoice Actions -->
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Manajemen Faktur</h2>
+                    
+                    <div class="space-y-4">
+                        <div class="relative">
+                            <select id="select-invoice" 
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="">Pilih Transaksi dengan Faktur</option>
+                            </select>
+                        </div>
+                        
+                        <button id="preview-invoice-btn" class="w-full btn-primary text-white px-6 py-2 rounded-lg font-medium">
+                            Preview Faktur
+                        </button>
+                        
+                        <button id="download-pdf-btn" class="w-full btn-secondary text-gray-700 px-6 py-2 rounded-lg font-medium">
+                            Download PDF
+                        </button>
+                        
+                        <button id="print-invoice-btn" class="w-full btn-secondary text-gray-700 px-6 py-2 rounded-lg font-medium">
+                            Cetak Faktur
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Preview Modal -->
+    <div id="invoice-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg p-6 max-w-4xl w-full max-h-screen overflow-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Pratinjau Faktur</h2>
+                <button id="close-invoice-modal" class="text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="invoice-to-print" class="invoice-preview p-8">
+                <!-- Invoice content will be generated here -->
+            </div>
+            
+            <div class="flex justify-end mt-4 gap-3">
+                <button id="close-modal-btn" class="btn-secondary text-gray-700 px-4 py-2 rounded-lg font-medium">
+                    Tutup
+                </button>
+                <button id="print-now-btn" class="btn-primary text-white px-4 py-2 rounded-lg font-medium">
+                    Cetak Sekarang
+                </button>
+                <button id="download-now-btn" class="btn-primary text-white px-4 py-2 rounded-lg font-medium">
+                    Download PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize jsPDF
+            const { jsPDF } = window.jspdf;
+            
+            // Initialize data from localStorage
+            let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+            let companyInfo = JSON.parse(localStorage.getItem('companyInfo')) || {
+                name: "PT Contoh Perusahaan",
+                address: "Jl. Contoh No. 123, Jakarta",
+                phone: "(021) 12345678",
+                taxId: "12.345.678.9-012.345",
+                logo: "./assets/images/company_logo.png"
+            };
+            
+            // DOM references
+            const form = {
+                date: document.getElementById('transaction-date'),
+                category: document.getElementById('transaction-category'),
+                description: document.getElementById('transaction-description'),
+                amount: document.getElementById('transaction-amount'),
+                type: document.getElementById('transaction-type'),
+                isInvoice: document.getElementById('is-invoice'),
+                customerName: document.getElementById('customer-name'),
+                invoiceNumber: document.getElementById('invoice-number'),
+                customerAddress: document.getElementById('customer-address'),
+                customerTaxId: document.getElementById('customer-tax-id'),
+                dueDate: document.getElementById('due-date')
+            };
+            
+            const companyForm = {
+                name: document.getElementById('company-name'),
+                address: document.getElementById('company-address'),
+                phone: document.getElementById('company-phone'),
+                taxId: document.getElementById('company-tax-id'),
+                logo: document.getElementById('company-logo')
+            };
+            
+            const tableBody = document.getElementById('transaction-data');
+            const addBtn = document.getElementById('add-transaction-btn');
+            const resetBtn = document.getElementById('reset-form-btn');
+            const exportBtn = document.getElementById('export-excel-btn');
+            const clearAllBtn = document.getElementById('clear-all-btn');
+            const totalIncomeEl = document.getElementById('total-income');
+            const totalExpenseEl = document.getElementById('total-expense');
+            const balanceEl = document.getElementById('balance');
+            const invoiceFields = document.getElementById('invoice-fields');
+            const selectInvoice = document.getElementById('select-invoice');
+            const previewBtn = document.getElementById('preview-invoice-btn');
+            const downloadPdfBtn = document.getElementById('download-pdf-btn');
+            const printBtn = document.getElementById('print-invoice-btn');
+            const invoiceModal = document.getElementById('invoice-modal');
+            const closeModalBtn = document.getElementById('close-invoice-modal');
+            const invoicePreview = document.getElementById('invoice-to-print');
+            const printNowBtn = document.getElementById('print-now-btn');
+            const downloadNowBtn = document.getElementById('download-now-btn');
+            const closeBtn = document.getElementById('close-modal-btn');
+            
+            // Set default date to today
+            const today = new Date();
+            const formattedDate = today.toISOString().split('T')[0];
+            form.date.value = formattedDate;
+            
+            // Format currency
+            function formatCurrency(amount) {
+                return new Intl.NumberFormat('id-ID', {
+                    style: 'decimal',
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }).format(amount);
+            }
+            
+            // Render transactions table
+            function renderTransactions() {
+                tableBody.innerHTML = '';
+                
+                if (transactions.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="px-6 py-4 text-center text-gray-500">Belum ada data transaksi</td>
+                        </tr>
+                    `;
+                    updateSelectInvoice();
+                    recalculateTotals();
+                    return;
+                }
+                
+                transactions.forEach((transaction, index) => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    
+                    // Action buttons
+                    let actions = `
+                        <button class="text-indigo-600 hover:text-indigo-900 mr-2" onclick="editTransaction(${index})">
+                            Edit
+                        </button>
+                        <button class="text-red-600 hover:text-red-900" onclick="deleteTransaction(${index})">
+                            Hapus
+                        </button>
+                    `;
+                    
+                    // Add invoice button if this is an invoice transaction
+                    if (transaction.invoice) {
+                        actions = `
+                            <button class="text-indigo-600 hover:text-indigo-900 mr-2" onclick="editTransaction(${index})">
+                                Edit
+                            </button>
+                            <button class="text-blue-600 hover:text-blue-900 mr-2" onclick="previewInvoice(${index})">
+                                Lihat Faktur
+                            </button>
+                            <button class="text-red-600 hover:text-red-900" onclick="deleteTransaction(${index})">
+                                Hapus
+                            </button>
+                        `;
+                    }
+                    
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">${index + 1}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${transaction.date}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${transaction.category}</td>
+                        <td class="px-6 py-4">${transaction.description}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                ${transaction.type === 'Pemasukan' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${transaction.type}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">${formatCurrency(parseFloat(transaction.amount))}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            ${actions}
+                        </td>
+                    `;
+                    
+                    tableBody.appendChild(row);
+                });
+                
+                updateSelectInvoice();
+                recalculateTotals();
+            }
+            
+            // Update invoice select dropdown
+            function updateSelectInvoice() {
+                selectInvoice.innerHTML = '<option value="">Pilih Transaksi dengan Faktur</option>';
+                
+                transactions.filter(t => t.invoice).forEach((transaction, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `${transaction.invoice.invoiceNumber} - ${transaction.invoice.customerName} (${formatCurrency(parseFloat(transaction.amount))})`;
+                    selectInvoice.appendChild(option);
+                });
+            }
+            
+            // Recalculate totals and balance
+            function recalculateTotals() {
+                let income = 0;
+                let expense = 0;
+                
+                transactions.forEach(transaction => {
+                    if (transaction.type === 'Pemasukan') {
+                        income += parseFloat(transaction.amount);
+                    } else {
+                        expense += parseFloat(transaction.amount);
+                    }
+                });
+                
+                totalIncomeEl.textContent = `Total Pemasukan: Rp${formatCurrency(income)}`;
+                totalExpenseEl.textContent = `Total Pengeluaran: Rp${formatCurrency(expense)}`;
+                balanceEl.textContent = `Saldo: Rp${formatCurrency(income - expense)}`;
+            }
+            
+            // Save data to localStorage
+            function saveData() {
+                localStorage.setItem('transactions', JSON.stringify(transactions));
+                localStorage.setItem('companyInfo', JSON.stringify(companyInfo));
+            }
+            
+            // Reset form
+            function resetForm() {
+                form.date.value = formattedDate;
+                form.category.value = '';
+                form.description.value = '';
+                form.amount.value = '';
+                form.type.value = 'Pemasukan';
+                form.isInvoice.checked = false;
+                form.customerName.value = '';
+                form.invoiceNumber.value = '';
+                form.customerAddress.value = '';
+                form.customerTaxId.value = '';
+                form.dueDate.value = '';
+                invoiceFields.classList.add('hidden');
+                
+                // Clear error states
+                document.querySelectorAll('.error, .error-label').forEach(el => {
+                    el.classList.remove('error', 'error-label');
+                });
+            }
+            
+            // Toggle invoice fields
+            form.isInvoice.addEventListener('change', function() {
+                if (this.checked) {
+                    invoiceFields.classList.remove('hidden');
+                    // Auto generate invoice number
+                    if (!form.invoiceNumber.value) {
+                        const now = new Date();
+                        const year = now.getFullYear();
+                        const month = String(now.getMonth() + 1).padStart(2, '0');
+                        const day = String(now.getDate()).padStart(2, '0');
+                        const randomNum = Math.floor(Math.random() * 1000);
+                        form.invoiceNumber.value = `INV-${year}${month}${day}-${randomNum}`;
+                    }
+                    // Set due date to 7 days from now
+                    if (!form.dueDate.value) {
+                        const dueDate = new Date();
+                        dueDate.setDate(dueDate.getDate() + 7);
+                        form.dueDate.value = dueDate.toISOString().split('T')[0];
+                    }
+                } else {
+                    invoiceFields.classList.add('hidden');
+                }
+            });
+            
+            // Add transaction
+            addBtn.addEventListener('click', function() {
+                // Reset error states
+                document.querySelectorAll('input[required], select[required]').forEach(el => {
+                    el.classList.remove('error');
+                    const label = document.querySelector(`label[for="${el.id}"]`);
+                    if (label) label.classList.remove('error-label');
+                });
+
+                let isValid = true;
+                
+                // Check required fields
+                const requiredFields = [
+                    'transaction-date',
+                    'transaction-description',
+                    'transaction-amount'
+                ];
+                
+                requiredFields.forEach(id => {
+                    const field = document.getElementById(id);
+                    if (!field.value) {
+                        field.classList.add('error');
+                        const label = document.querySelector(`label[for="${id}"]`);
+                        if (label) label.classList.add('error-label');
+                        isValid = false;
+                    }
+                });
+
+                if (!isValid) {
+                    alert('Mohon isi semua kolom yang wajib diisi! Kolom yang belum diisi telah ditandai dengan warna merah.');
+                    return;
+                }
+                
+                const transaction = {
+                    date: form.date.value,
+                    category: form.category.value || 'Lainnya',
+                    description: form.description.value,
+                    amount: form.amount.value,
+                    type: form.type.value,
+                    createdAt: new Date().toISOString()
+                };
+                
+                if (form.isInvoice.checked) {
+                    transaction.invoice = {
+                        customerName: form.customerName.value,
+                        invoiceNumber: form.invoiceNumber.value,
+                        customerAddress: form.customerAddress.value,
+                        customerTaxId: form.customerTaxId.value || '-',
+                        dueDate: form.dueDate.value
+                    };
+                }
+                
+                transactions.push(transaction);
+                saveData();
+                renderTransactions();
+                resetForm();
+            });
+            
+            // Reset form
+            resetBtn.addEventListener('click', resetForm);
+            
+            // Clear all transactions
+            clearAllBtn.addEventListener('click', function() {
+                if (confirm('Apakah Anda yakin ingin menghapus semua transaksi?')) {
+                    transactions = [];
+                    saveData();
+                    renderTransactions();
+                }
+            });
+            
+            // Export to Excel
+            exportBtn.addEventListener('click', function() {
+                if (transactions.length === 0) {
+                    alert('Tidak ada data transaksi untuk diekspor!');
+                    return;
+                }
+                
+                // Prepare worksheet
+                const ws_data = [
+                    ['No', 'Tanggal', 'Kategori', 'Deskripsi', 'Tipe', 'Jumlah (Rp)', 'No. Faktur', 'Pelanggan'], // headers
+                    ...transactions.map((t, i) => [
+                        i + 1,
+                        t.date,
+                        t.category,
+                        t.description,
+                        t.type,
+                        parseFloat(t.amount),
+                        t.invoice ? t.invoice.invoiceNumber : '-',
+                        t.invoice ? t.invoice.customerName : '-'
+                    ])
+                ];
+                
+                const ws = XLSX.utils.aoa_to_sheet(ws_data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Laporan Keuangan");
+                
+                // Generate and download Excel file
+                XLSX.writeFile(wb, `Laporan_Keuangan_${new Date().toISOString().split('T')[0]}.xlsx`);
+            });
+            
+            // Preview invoice
+            function previewInvoice(index) {
+                const transaction = transactions[index];
+                if (!transaction.invoice) return;
+                
+                // Generate invoice HTML
+                invoicePreview.innerHTML = generateInvoiceHTML(transaction);
+                
+                // Show modal
+                invoiceModal.classList.remove('hidden');
+            }
+            
+            // Generate invoice HTML
+            function generateInvoiceHTML(transaction) {
+                const invoiceDate = new Date(transaction.date);
+                const dueDate = new Date(transaction.invoice.dueDate);
+                
+                const formattedInvoiceDate = invoiceDate.toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                });
+                
+                const formattedDueDate = dueDate.toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                });
+                
+                return `
+                    <div class="flex justify-between items-start mb-8">
+                        <div>
+                            <img src="${companyInfo.logo}" alt="Company Logo" class="h-12">
+                        </div>
+                        <div class="text-right">
+                            <h2 class="text-2xl font-bold text-gray-800">FAKTUR</h2>
+                            <p class="text-gray-600">No: ${transaction.invoice.invoiceNumber}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        <div>
+                            <h3 class="font-semibold text-gray-800 mb-2">Diterbitkan oleh:</h3>
+                            <p class="font-bold">${companyInfo.name}</p>
+                            <p>${companyInfo.address}</p>
+                            <p>Telp: ${companyInfo.phone}</p>
+                            <p>NPWP: ${companyInfo.taxId}</p>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-800 mb-2">Kepada:</h3>
+                            <p class="font-bold">${transaction.invoice.customerName}</p>
+                            <p>${transaction.invoice.customerAddress}</p>
+                            <p>NPWP: ${transaction.invoice.customerTaxId}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 mb-8">
+                        <div>
+                            <p><span class="font-semibold">Tanggal Faktur:</span> ${formattedInvoiceDate}</p>
+                        </div>
+                        <div>
+                            <p><span class="font-semibold">Jatuh Tempo:</span> ${formattedDueDate}</p>
+                        </div>
+                    </div>
+                    
+                    <table class="w-full border-collapse mb-8">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="text-left py-3 px-4 border">No</th>
+                                <th class="text-left py-3 px-4 border">Deskripsi</th>
+                                <th class="text-left py-3 px-4 border">Jumlah</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="py-3 px-4 border">1</td>
+                                <td class="py-3 px-4 border">${transaction.description}</td>
+                                <td class="py-3 px-4 border text-right">Rp${formatCurrency(parseFloat(transaction.amount))}</td>
+                            </tr>
+                            <tr class="font-bold">
+                                <td class="py-3 px-4 border" colspan="2">TOTAL</td>
+                                <td class="py-3 px-4 border text-right">Rp${formatCurrency(parseFloat(transaction.amount))}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
+                        <div>
+                            <p class="font-semibold mb-2">Catatan:</p>
+                            <p>Pembayaran dapat ditransfer ke:</p>
+                            <p class="font-bold mt-2">Bank Contoh</p>
+                            <p>No. Rek: 1234567890</p>
+                            <p>Atas Nama: ${companyInfo.name}</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="mb-16">Hormat kami,</p>
+                            <p class="font-bold border-t-2 border-gray-300 pt-4 inline-block">
+                                ${companyInfo.name}
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Download PDF
+            function downloadPDF(transaction) {
+                const doc = new jsPDF();
+                
+                // Add company info
+                doc.setFontSize(10);
+                doc.setTextColor(100);
+                doc.text(companyInfo.name, 20, 20);
+                doc.text(companyInfo.address, 20, 26);
+                doc.text(`Telp: ${companyInfo.phone}`, 20, 32);
+                doc.text(`NPWP: ${companyInfo.taxId}`, 20, 38);
+                
+                // Add invoice header
+                doc.setFontSize(18);
+                doc.setTextColor(0);
+                doc.setFont(undefined, 'bold');
+                doc.text('FAKTUR', 160, 20, { align: 'right' });
+                doc.setFontSize(12);
+                doc.setFont(undefined, 'normal');
+                doc.text(`No: ${transaction.invoice.invoiceNumber}`, 160, 26, { align: 'right' });
+                doc.text(`Tanggal: ${transaction.date}`, 160, 32, { align: 'right' });
+                
+                // Add customer info
+                doc.setFontSize(12);
+                doc.setTextColor(0);
+                doc.text('Kepada:', 20, 50);
+                doc.setFont(undefined, 'bold');
+                doc.text(transaction.invoice.customerName, 30, 56);
+                doc.setFont(undefined, 'normal');
+                doc.text(transaction.invoice.customerAddress, 30, 62);
+                doc.text(`NPWP: ${transaction.invoice.customerTaxId || '-'}`, 30, 68);
+                doc.text(`Jatuh Tempo: ${transaction.invoice.dueDate}`, 30, 74);
+                
+                // Add line
+                doc.setDrawColor(200);
+                doc.setLineWidth(0.5);
+                doc.line(15, 80, 195, 80);
+                
+                // Add table header
+                doc.setFillColor(240);
+                doc.rect(15, 85, 180, 10, 'F');
+                doc.setFont(undefined, 'bold');
+                doc.text('No', 20, 91);
+                doc.text('Deskripsi', 40, 91);
+                doc.text('Jumlah', 160, 91, { align: 'right' });
+                
+                // Add item
+                doc.setFont(undefined, 'normal');
+                doc.text('1', 20, 101);
+                doc.text(transaction.description, 40, 101, { maxWidth: 100 });
+                doc.text(`Rp${formatCurrency(parseFloat(transaction.amount))}`, 170, 101, { align: 'right' });
+                
+                // Add line
+                doc.setDrawColor(200);
+                doc.setLineWidth(0.2);
+                doc.line(15, 105, 195, 105);
+                
+                // Add total
+                doc.setFont(undefined, 'bold');
+                doc.text('TOTAL', 40, 115);
+                doc.text(`Rp${formatCurrency(parseFloat(transaction.amount))}`, 170, 115, { align: 'right' });
+                
+                // Add line
+                doc.setDrawColor(150);
+                doc.setLineWidth(0.5);
+                doc.line(15, 120, 195, 120);
+                
+                // Add payment info
+                doc.setFont(undefined, 'bold');
+                doc.text('Pembayaran dapat ditransfer ke:', 20, 130);
+                doc.setFont(undefined, 'normal');
+                doc.text('Bank Contoh', 20, 136);
+                doc.text('No. Rek: 1234567890', 20, 142);
+                doc.text(`Atas Nama: ${companyInfo.name}`, 20, 148);
+                
+                // Add signature
+                doc.text('Hormat kami,', 140, 170);
+                doc.line(140, 180, 180, 180);
+                doc.setFont(undefined, 'bold');
+                doc.text(companyInfo.name, 140, 188);
+                
+                // Save the PDF
+                doc.save(`Faktur_${transaction.invoice.invoiceNumber}.pdf`);
+            }
+            
+            // Preview invoice from select
+            previewBtn.addEventListener('click', function() {
+                if (!selectInvoice.value) {
+                    alert('Pilih faktur terlebih dahulu!');
+                    return;
+                }
+                
+                const index = parseInt(selectInvoice.value);
+                previewInvoice(index);
+            });
+            
+            // Download PDF from select
+            downloadPdfBtn.addEventListener('click', function() {
+                if (!selectInvoice.value) {
+                    alert('Pilih faktur terlebih dahulu!');
+                    return;
+                }
+                
+                const index = parseInt(selectInvoice.value);
+                downloadPDF(transactions[index]);
+            });
+            
+            // Print invoice from select
+            printBtn.addEventListener('click', function() {
+                if (!selectInvoice.value) {
+                    alert('Pilih faktur terlebih dahulu!');
+                    return;
+                }
+                
+                const index = parseInt(selectInvoice.value);
+                invoicePreview.innerHTML = generateInvoiceHTML(transactions[index]);
+                setTimeout(() => {
+                    window.print();
+                }, 500);
+            });
+            
+            // Close modal
+            closeModalBtn.addEventListener('click', function() {
+                invoiceModal.classList.add('hidden');
+            });
+            
+            closeBtn.addEventListener('click', function() {
+                invoiceModal.classList.add('hidden');
+            });
+            
+            // Print now
+            printNowBtn.addEventListener('click', function() {
+                window.print();
+            });
+            
+            // Download now
+            downloadNowBtn.addEventListener('click', function() {
+                const index = selectInvoice.value;
+                if (index) {
+                    downloadPDF(transactions[index]);
+                }
+            });
+            
+            // Load company info
+            function loadCompanyInfo() {
+                companyForm.name.value = companyInfo.name;
+                companyForm.address.value = companyInfo.address;
+                companyForm.phone.value = companyInfo.phone;
+                companyForm.taxId.value = companyInfo.taxId;
+                companyForm.logo.value = companyInfo.logo;
+            }
+            
+            // Save company info when changed
+            Object.keys(companyForm).forEach(key => {
+                companyForm[key].addEventListener('change', function() {
+                    companyInfo[key] = this.value;
+                    saveData();
+                });
+            });
+            
+            // Global functions for button actions
+            window.editTransaction = function(index) {
+                const transaction = transactions[index];
+                
+                form.date.value = transaction.date;
+                form.category.value = transaction.category;
+                form.description.value = transaction.description;
+                form.amount.value = transaction.amount;
+                form.type.value = transaction.type;
+                
+                if (transaction.invoice) {
+                    form.isInvoice.checked = true;
+                    invoiceFields.classList.remove('hidden');
+                    form.customerName.value = transaction.invoice.customerName;
+                    form.invoiceNumber.value = transaction.invoice.invoiceNumber;
+                    form.customerAddress.value = transaction.invoice.customerAddress;
+                    form.customerTaxId.value = transaction.invoice.customerTaxId;
+                    form.dueDate.value = transaction.invoice.dueDate;
+                } else {
+                    form.isInvoice.checked = false;
+                    invoiceFields.classList.add('hidden');
+                }
+                
+                // Remove the transaction
+                transactions.splice(index, 1);
+                saveData();
+                renderTransactions();
+            };
+            
+            window.deleteTransaction = function(index) {
+                if (confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
+                    transactions.splice(index, 1);
+                    saveData();
+                    renderTransactions();
+                }
+            };
+            
+            window.previewInvoice = function(index) {
+                previewInvoice(index);
+            };
+            
+            // Initial render
+            loadCompanyInfo();
+            renderTransactions();
+        });
+    </script>
+</body>
+</html>
